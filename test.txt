@@ -1,0 +1,83 @@
+I
+a)
+private List<Users> GetUsers(int pageNumber, int pageSize, string role)
+        {
+            var role_ = db.Roles.SingleOrDefault(c => c.Name.Equals(role));
+            if (role_ is null)
+                return new List<Users>();
+            var users = Queryable.Where(db.Users, c => Enumerable.Any<Roles>(c.Roles, g => g.Id == role_.Id)).ToList();
+            if (pageSize > users.Count)
+                return users;
+            var usersPage = new List<Users>();
+            for (int i = (pageNumber-1)*pageSize; i < pageSize*pageNumber; i++)
+            {
+                usersPage.Add(users[i]);
+            }
+            return usersPage;
+        }
+
+b)
+select Name 
+from Users
+inner join UserRoles on Users.Id = UserRoles.UserId and UserRoles.RoleId = 
+(select Id
+from Roles
+where Roles.Name = 'Роль')
+
+c)
+private Tuple<List<Users>, List<Roles>> GetUsersUP(int pageNumber, int pageSize, string role)
+        {
+            var role_ = db.Roles.SingleOrDefault(c => c.Name.Equals(role));
+            if (role_ is null)
+                return Tuple.Create<List<Users>, List<Roles>>(new List<Users>(), new List<Roles>());
+            var users = Queryable.Where(db.Users, c => Enumerable.Any<Roles>(c.Roles, g => g.Id == role_.Id)).ToList();
+            var roles = new List<Roles>();
+            foreach (var item in users)
+            {
+                roles.Add(Queryable.SingleOrDefault(db.Roles, c=> Enumerable.Any<Users>(c.Users, g => g.Id == item.Id)));
+            }
+            if (pageSize > users.Count)
+                return Tuple.Create<List<Users>, List<Roles>>(users, roles);
+            var usersPage = new List<Users>();
+            var rolesPage = new List<Roles>();
+            for (int i = (pageNumber - 1) * pageSize; i < pageSize * pageNumber; i++)
+            {
+                usersPage.Add(users[i]);
+                var rolesS = Queryable
+                    .Where(db.Roles, c => Enumerable.Any<Users>(c.Users, g => g.Id == users[i].Id)).ToList();
+                foreach (var item in rolesS)
+                {
+                    rolesPage.Add(item);
+                }
+            }
+            return Tuple.Create<List<Users>, List<Roles>>(usersPage, rolesPage); 
+        }
+II
+
+private List<Employees> GetEmployees(string name)
+        {
+            if (name is null)
+                return new List<Employees>();
+            Employees employee = Queryable.SingleOrDefault(db.Employees, c => c.Name.Equals(name));
+            if (employee is null)
+                return new List<Employees>();
+            var EmpList = new List<Employees>();
+            foreach (var item in db.Employees)
+                if (item.ManagerId == employee.Id)
+                {
+                    EmpList.Add(item);
+                    foreach (var item2lvl in db.Employees)
+                        if (item2lvl.ManagerId == item.Id)
+                            EmpList.Add(item2lvl);
+                }
+
+            return EmpList;
+        }
+
+III
+Написать прогу получения данных из файла и построчно через update добавить записи. 
+Если та таблица имеет мало записей, можно данные из нее сохранить в новый файл. 
+Те 10к записей ипортировать и довить update старых записей. 
+Какой способ быстрее зависит от личных и аппаратных факторов.
+
+Если только посредством СУБД, то импортировать в новую таблицу и перенести из нее (опять же, если данных было мало, то можно их перенести в новую и востановить все связи).
